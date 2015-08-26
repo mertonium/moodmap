@@ -15,6 +15,7 @@ from flask.ext.migrate import Migrate, MigrateCommand
 app = Flask(__name__)
 app.config['DEBUG'] = os.environ['DEBUG']
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ['DATABASE_URL']
+app.config['SMS_NUMBER'] = os.environ['TWILIO_NUM']
 db = SQLAlchemy(app)
 
 # Setup scripts
@@ -39,7 +40,7 @@ def shutdown_session(exception=None):
 def index():
   users = User.query.all()
   users_json = [u.to_json() for u in users]
-  return render_template('index.html', users = users, users_json = users_json)
+  return render_template('index.html', users = users, users_json = users_json, sms_number = pretty_sms_number(app.config['SMS_NUMBER']))
 
 @app.route('/users')
 def users():
@@ -106,7 +107,7 @@ class User(db.Model):
   phone_number = db.Column(db.String(20), unique=True)
   entries = db.relationship('Entry', backref='user', lazy='dynamic')
   data = db.Column(db.Text())
-  
+
   def __init__(self, phone_number, username):
     username_url = username_to_url(username)
     self.phone_number = phone_number
@@ -134,7 +135,7 @@ class User(db.Model):
     for e in entries:
       e_dict = e.to_dict()
       data[e_dict['date']] = e_dict
-    
+
     # add data to user dict
     u_dict = self.to_dict()
     del u_dict['phone_number']
@@ -148,7 +149,7 @@ class Entry(db.Model):
   date = db.Column(db.DateTime)
   mood = db.Column(db.Integer)
   note = db.Column(db.String)
-  
+
   def __init__(self, mood, note, date = datetime.now()):
     self.mood = mood
     self.note = note
@@ -184,7 +185,7 @@ def send_alive_again():
 @manager.command
 def send_nightly_reminder():
   users = User.query.all()
-  reminder_template = choice(['nightly-reminder-1.html', 
+  reminder_template = choice(['nightly-reminder-1.html',
                     'nightly-reminder-2.html',
                     'nightly-reminder-3.html',
                     'nightly-reminder-4.html',
@@ -223,7 +224,7 @@ def get_or_create_user(phone_number, username = None):
   if u:
     app.logger.info('Found existing user: %s' % u.username)
     return u
-  
+
   # Check for duplicate username
   elif User.query.filter_by(username_url = username_to_url(username)).first():
     app.logger.info('Duplicate username')
@@ -265,6 +266,10 @@ def parse_phone_number(msg):
   if m:
     phone_number = '+1' + m.group(1) + m.group(2) + m.group(3)
     return phone_number
+
+def pretty_sms_number(s):
+  # I'm not proud of this
+  return '(' + s[0:3] + ') ' + s[3:6] + '-' + s[6:10]
 
 if __name__ == '__main__':
     manager.run()
