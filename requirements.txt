@@ -10,7 +10,6 @@ PyTumblr==0.0.5
 SQLAlchemy==0.8.1
 Werkzeug==0.9.1
 alembic==0.6.2
-distribute==0.6.31
 gspread==0.1.0
 gunicorn==0.17.4
 httplib2==0.8
